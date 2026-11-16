@@ -1,0 +1,6 @@
+{
+  "name": "Prince AI Studio",
+  "description": "Private AI creation studio platform with role-based access, subscriptions, AI Script, Image, Voice, and Video planning tools.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,243 @@
+{
+  "entities": {
+    "AdminGrant": {
+      "title": "AdminGrant",
+      "description": "Trusted role document granting delegated admin access by the Owner.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "grantedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "grantedBy", "createdAt"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private user account, role, status, subscription plan, and AI usage counters.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "bio": { "type": "string" },
+        "preferredLanguage": { "type": "string", "enum": ["en", "hi", "ne"] },
+        "role": { "type": "string", "enum": ["owner", "admin", "user"] },
+        "status": { "type": "string", "enum": ["active", "suspended", "deactivated"] },
+        "planId": { "type": "string", "enum": ["free", "basic", "pro", "custom"] },
+        "videoUsed": { "type": "integer" },
+        "voiceUsed": { "type": "integer" },
+        "imageUsed": { "type": "integer" },
+        "scriptUsed": { "type": "integer" },
+        "chatUsed": { "type": "integer" },
+        "customVideoLimit": { "type": "integer" },
+        "customVoiceLimit": { "type": "integer" },
+        "customImageLimit": { "type": "integer" },
+        "customScriptLimit": { "type": "integer" },
+        "customChatLimit": { "type": "integer" },
+        "recommendedPlanId": { "type": "string", "enum": ["", "free", "basic", "pro", "custom"] },
+        "recommendedNote": { "type": "string" },
+        "inviteCode": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "email", "displayName", "role", "status", "planId", "videoUsed", "voiceUsed", "imageUsed", "scriptUsed", "createdAt", "updatedAt"]
+    },
+    "Invitation": {
+      "title": "Invitation",
+      "description": "Private access invitation token issued by Owner/Admin.",
+      "type": "object",
+      "properties": {
+        "inviteCode": { "type": "string" },
+        "invitedEmail": { "type": "string" },
+        "invitedName": { "type": "string" },
+        "role": { "type": "string", "enum": ["user"] },
+        "planId": { "type": "string", "enum": ["free", "basic", "pro", "custom"] },
+        "status": { "type": "string", "enum": ["pending", "accepted", "revoked"] },
+        "createdByUid": { "type": "string" },
+        "acceptedByUid": { "type": "string" },
+        "note": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["inviteCode", "role", "planId", "status", "createdByUid", "createdAt", "updatedAt"]
+    },
+    "SubscriptionPlan": {
+      "title": "SubscriptionPlan",
+      "description": "Configurable subscription tier with tool limits.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "priceUsd": { "type": "number" },
+        "billingPeriod": { "type": "string", "enum": ["monthly", "yearly", "custom"] },
+        "videoLimit": { "type": "integer" },
+        "voiceLimit": { "type": "integer" },
+        "imageLimit": { "type": "integer" },
+        "scriptLimit": { "type": "integer" },
+        "chatLimit": { "type": "integer" },
+        "includedTools": { "type": "array" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "description", "priceUsd", "billingPeriod", "videoLimit", "voiceLimit", "imageLimit", "scriptLimit", "includedTools", "isActive", "createdAt", "updatedAt"]
+    },
+    "UpgradeRequest": {
+      "title": "UpgradeRequest",
+      "description": "User-submitted subscription upgrade request awaiting Admin review.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userName": { "type": "string" },
+        "currentPlanId": { "type": "string", "enum": ["free", "basic", "pro", "custom"] },
+        "requestedPlanId": { "type": "string", "enum": ["free", "basic", "pro", "custom"] },
+        "note": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "adminNote": { "type": "string" },
+        "reviewedByUid": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userEmail", "userName", "currentPlanId", "requestedPlanId", "status", "createdAt", "updatedAt"]
+    },
+    "StudioProject": {
+      "title": "StudioProject",
+      "description": "User-owned AI creation record across Video Plan, Video MP4, Voice, Image, Script, or Chat studios.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string", "enum": ["video_plan", "video_mp4", "voice", "image", "script", "chat"] },
+        "prompt": { "type": "string" },
+        "outputText": { "type": "string" },
+        "language": { "type": "string" },
+        "modelUsed": { "type": "string" },
+        "status": { "type": "string", "enum": ["completed", "failed", "draft"] },
+        "localMediaUri": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "type", "prompt", "outputText", "status", "createdAt", "updatedAt"]
+    },
+    "ChatSession": {
+      "title": "ChatSession",
+      "description": "Persistent AI Chat thread owned by a single authenticated user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "language": { "type": "string", "enum": ["en", "hi", "ne"] },
+        "modelUsed": { "type": "string" },
+        "lastMessagePreview": { "type": "string" },
+        "messageCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "language", "modelUsed", "lastMessagePreview", "messageCount", "createdAt", "updatedAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Ordered conversational turn inside a user's persistent ChatSession.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "model"] },
+        "text": { "type": "string" },
+        "hasImageAttachment": { "type": "boolean" },
+        "modelUsed": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "role", "text", "hasImageAttachment", "createdAt"]
+    },
+    "AssistantNote": {
+      "title": "AssistantNote",
+      "description": "Voice or text note and reminder managed by PRINCE AI PHONE ASSISTANT.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "kind": { "type": "string", "enum": ["note", "reminder"] },
+        "dueLabel": { "type": "string" },
+        "isCompleted": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "content", "kind", "isCompleted", "createdAt", "updatedAt"]
+    },
+    "NotificationItem": {
+      "title": "NotificationItem",
+      "description": "Announcements, maintenance alerts, recommendations, or user support messages.",
+      "type": "object",
+      "properties": {
+        "targetUserId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "category": { "type": "string", "enum": ["announcement", "maintenance", "recommendation", "support", "system"] },
+        "recommendedPlanId": { "type": "string", "enum": ["", "free", "basic", "pro", "custom"] },
+        "isRead": { "type": "boolean" },
+        "createdByUid": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["targetUserId", "title", "message", "category", "isRead", "createdByUid", "createdAt", "updatedAt"]
+    },
+    "SystemConfig": {
+      "title": "SystemConfig",
+      "description": "Global platform configuration, maintenance mode, provider settings, and AI tool toggles.",
+      "type": "object",
+      "properties": {
+        "maintenanceMode": { "type": "boolean" },
+        "maintenanceMessage": { "type": "string" },
+        "invitesEnabled": { "type": "boolean" },
+        "videoStudioEnabled": { "type": "boolean" },
+        "voiceStudioEnabled": { "type": "boolean" },
+        "imageStudioEnabled": { "type": "boolean" },
+        "scriptStudioEnabled": { "type": "boolean" },
+        "aiChatEnabled": { "type": "boolean" },
+        "voiceAssistantEnabled": { "type": "boolean" },
+        "phoneActionsEnabled": { "type": "boolean" },
+        "activeChatModel": { "type": "string" },
+        "maxVideoDurationSeconds": { "type": "integer" },
+        "videoProviderConfigured": { "type": "boolean" },
+        "videoProviderName": { "type": "string" },
+        "updatedByUid": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["maintenanceMode", "maintenanceMessage", "invitesEnabled", "videoStudioEnabled", "voiceStudioEnabled", "imageStudioEnabled", "scriptStudioEnabled", "videoProviderConfigured", "updatedByUid", "createdAt", "updatedAt"]
+    },
+    "AdminLog": {
+      "title": "AdminLog",
+      "description": "Immutable audit trail of admin actions and AI service errors.",
+      "type": "object",
+      "properties": {
+        "actorUid": { "type": "string" },
+        "actorEmail": { "type": "string" },
+        "action": { "type": "string" },
+        "targetId": { "type": "string" },
+        "details": { "type": "string" },
+        "severity": { "type": "string", "enum": ["info", "warning", "error"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["actorUid", "actorEmail", "action", "targetId", "details", "severity", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/admins/{uid}": { "schema": { "$ref": "#/entities/AdminGrant" }, "description": "Delegated admin grants controlled exclusively by the Owner." },
+    "/users/{userId}": { "schema": { "$ref": "#/entities/UserProfile" }, "description": "User profiles, access status, roles, plans, and usage counters." },
+    "/invitations/{inviteCode}": { "schema": { "$ref": "#/entities/Invitation" }, "description": "Private access invitations redeemed atomically during registration." },
+    "/subscription_plans/{planId}": { "schema": { "$ref": "#/entities/SubscriptionPlan" }, "description": "Configurable subscription tiers." },
+    "/upgrade_requests/{requestId}": { "schema": { "$ref": "#/entities/UpgradeRequest" }, "description": "User requests for subscription upgrades." },
+    "/projects/{projectId}": { "schema": { "$ref": "#/entities/StudioProject" }, "description": "User-owned generated projects." },
+    "/chat_sessions/{sessionId}": { "schema": { "$ref": "#/entities/ChatSession" }, "description": "Persistent AI Chat threads." },
+    "/chat_sessions/{sessionId}/messages/{messageId}": { "schema": { "$ref": "#/entities/ChatMessage" }, "description": "Messages inside an AI Chat thread." },
+    "/assistant_notes/{noteId}": { "schema": { "$ref": "#/entities/AssistantNote" }, "description": "Notes and reminders created by PRINCE AI PHONE ASSISTANT." },
+    "/notifications/{notificationId}": { "schema": { "$ref": "#/entities/NotificationItem" }, "description": "Announcements, maintenance alerts, recommendations, and support messages." },
+    "/system_config/{configId}": { "schema": { "$ref": "#/entities/SystemConfig" }, "description": "Global platform configuration and AI tool toggles." },
+    "/admin_logs/{logId}": { "schema": { "$ref": "#/entities/AdminLog" }, "description": "Immutable admin audit and service error logs." }
+  }
+}

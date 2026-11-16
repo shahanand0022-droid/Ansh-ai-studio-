@@ -1,0 +1,500 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwnerEmail() {
+      return isSignedIn() &&
+             request.auth.token.email_verified == true &&
+             request.auth.token.email == 'shahprince0021@gmail.com';
+    }
+
+    function isAdmin() {
+      return isOwnerEmail() ||
+             (isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+
+    function isActiveUser() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active';
+    }
+
+    function isValidAdminGrant(data) {
+      return data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 &&
+             data.email is string && data.email.size() >= 3 && data.email.size() <= 200 &&
+             data.grantedBy is string && data.grantedBy.size() >= 1 && data.grantedBy.size() <= 128 &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.email is string && data.email.size() >= 3 && data.email.size() <= 200 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+             (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 500)) &&
+             (!('bio' in data) || (data.bio is string && data.bio.size() <= 300)) &&
+             (!('preferredLanguage' in data) || data.preferredLanguage in ['en', 'hi', 'ne']) &&
+             data.role in ['owner', 'admin', 'user'] &&
+             data.status in ['active', 'suspended', 'deactivated'] &&
+             data.planId in ['free', 'basic', 'pro', 'custom'] &&
+             data.videoUsed is int && data.videoUsed >= 0 &&
+             data.voiceUsed is int && data.voiceUsed >= 0 &&
+             data.imageUsed is int && data.imageUsed >= 0 &&
+             data.scriptUsed is int && data.scriptUsed >= 0 &&
+             (!('chatUsed' in data) || (data.chatUsed is int && data.chatUsed >= 0)) &&
+             (!('customVideoLimit' in data) || (data.customVideoLimit is int && data.customVideoLimit >= -1)) &&
+             (!('customVoiceLimit' in data) || (data.customVoiceLimit is int && data.customVoiceLimit >= -1)) &&
+             (!('customImageLimit' in data) || (data.customImageLimit is int && data.customImageLimit >= -1)) &&
+             (!('customScriptLimit' in data) || (data.customScriptLimit is int && data.customScriptLimit >= -1)) &&
+             (!('customChatLimit' in data) || (data.customChatLimit is int && data.customChatLimit >= -1)) &&
+             (!('recommendedPlanId' in data) || data.recommendedPlanId in ['', 'free', 'basic', 'pro', 'custom']) &&
+             (!('recommendedNote' in data) || (data.recommendedNote is string && data.recommendedNote.size() <= 400)) &&
+             (!('inviteCode' in data) || (data.inviteCode is string && data.inviteCode.size() <= 64)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidInvitation(data) {
+      return data.inviteCode is string && data.inviteCode.size() >= 4 && data.inviteCode.size() <= 64 &&
+             (!('invitedEmail' in data) || (data.invitedEmail is string && data.invitedEmail.size() <= 200)) &&
+             (!('invitedName' in data) || (data.invitedName is string && data.invitedName.size() <= 100)) &&
+             data.role == 'user' &&
+             data.planId in ['free', 'basic', 'pro', 'custom'] &&
+             data.status in ['pending', 'accepted', 'revoked'] &&
+             data.createdByUid is string && data.createdByUid.size() >= 1 && data.createdByUid.size() <= 128 &&
+             (!('acceptedByUid' in data) || (data.acceptedByUid is string && data.acceptedByUid.size() <= 128)) &&
+             (!('note' in data) || (data.note is string && data.note.size() <= 300)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidSubscriptionPlan(data) {
+      return data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
+             data.description is string && data.description.size() <= 400 &&
+             data.priceUsd is number && data.priceUsd >= 0 &&
+             data.billingPeriod in ['monthly', 'yearly', 'custom'] &&
+             data.videoLimit is int && data.videoLimit >= -1 &&
+             data.voiceLimit is int && data.voiceLimit >= -1 &&
+             data.imageLimit is int && data.imageLimit >= -1 &&
+             data.scriptLimit is int && data.scriptLimit >= -1 &&
+             (!('chatLimit' in data) || (data.chatLimit is int && data.chatLimit >= -1)) &&
+             data.includedTools is list && data.includedTools.size() <= 10 &&
+             (data.includedTools.size() == 0 || data.includedTools[0] is string) &&
+             data.isActive is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidUpgradeRequest(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.userEmail is string && data.userEmail.size() >= 3 && data.userEmail.size() <= 200 &&
+             data.userName is string && data.userName.size() >= 1 && data.userName.size() <= 100 &&
+             data.currentPlanId in ['free', 'basic', 'pro', 'custom'] &&
+             data.requestedPlanId in ['free', 'basic', 'pro', 'custom'] &&
+             (!('note' in data) || (data.note is string && data.note.size() <= 400)) &&
+             data.status in ['pending', 'approved', 'rejected'] &&
+             (!('adminNote' in data) || (data.adminNote is string && data.adminNote.size() <= 400)) &&
+             (!('reviewedByUid' in data) || (data.reviewedByUid is string && data.reviewedByUid.size() <= 128)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidProject(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 150 &&
+             data.type in ['video_plan', 'video_mp4', 'voice', 'image', 'script', 'chat'] &&
+             data.prompt is string && data.prompt.size() >= 1 && data.prompt.size() <= 4000 &&
+             data.outputText is string && data.outputText.size() <= 20000 &&
+             (!('language' in data) || (data.language is string && data.language.size() <= 20)) &&
+             (!('modelUsed' in data) || (data.modelUsed is string && data.modelUsed.size() <= 100)) &&
+             data.status in ['completed', 'failed', 'draft'] &&
+             (!('localMediaUri' in data) || (data.localMediaUri is string && data.localMediaUri.size() <= 500)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidChatSession(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 140 &&
+             data.language in ['en', 'hi', 'ne'] &&
+             data.modelUsed is string && data.modelUsed.size() >= 1 && data.modelUsed.size() <= 100 &&
+             data.lastMessagePreview is string && data.lastMessagePreview.size() <= 300 &&
+             data.messageCount is int && data.messageCount >= 0 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidChatMessage(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.role in ['user', 'model'] &&
+             data.text is string && data.text.size() >= 1 && data.text.size() <= 25000 &&
+             data.hasImageAttachment is bool &&
+             (!('modelUsed' in data) || (data.modelUsed is string && data.modelUsed.size() <= 100)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidAssistantNote(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 150 &&
+             data.content is string && data.content.size() <= 4000 &&
+             data.kind in ['note', 'reminder'] &&
+             (!('dueLabel' in data) || (data.dueLabel is string && data.dueLabel.size() <= 120)) &&
+             data.isCompleted is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidNotification(data) {
+      return data.targetUserId is string && data.targetUserId.size() >= 1 && data.targetUserId.size() <= 128 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 140 &&
+             data.message is string && data.message.size() >= 1 && data.message.size() <= 1500 &&
+             data.category in ['announcement', 'maintenance', 'recommendation', 'support', 'system'] &&
+             (!('recommendedPlanId' in data) || data.recommendedPlanId in ['', 'free', 'basic', 'pro', 'custom']) &&
+             data.isRead is bool &&
+             data.createdByUid is string && data.createdByUid.size() >= 1 && data.createdByUid.size() <= 128 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidSystemConfig(data) {
+      return data.maintenanceMode is bool &&
+             data.maintenanceMessage is string && data.maintenanceMessage.size() <= 400 &&
+             data.invitesEnabled is bool &&
+             data.videoStudioEnabled is bool &&
+             data.voiceStudioEnabled is bool &&
+             data.imageStudioEnabled is bool &&
+             data.scriptStudioEnabled is bool &&
+             (!('aiChatEnabled' in data) || data.aiChatEnabled is bool) &&
+             (!('voiceAssistantEnabled' in data) || data.voiceAssistantEnabled is bool) &&
+             (!('phoneActionsEnabled' in data) || data.phoneActionsEnabled is bool) &&
+             (!('activeChatModel' in data) || (data.activeChatModel is string && data.activeChatModel.size() >= 3 && data.activeChatModel.size() <= 100)) &&
+             (!('maxVideoDurationSeconds' in data) || (data.maxVideoDurationSeconds is int && data.maxVideoDurationSeconds >= 15 && data.maxVideoDurationSeconds <= 300)) &&
+             data.videoProviderConfigured is bool &&
+             (!('videoProviderName' in data) || (data.videoProviderName is string && data.videoProviderName.size() <= 120)) &&
+             data.updatedByUid is string && data.updatedByUid.size() >= 1 && data.updatedByUid.size() <= 128 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidAdminLog(data) {
+      return data.actorUid is string && data.actorUid.size() >= 1 && data.actorUid.size() <= 128 &&
+             data.actorEmail is string && data.actorEmail.size() <= 200 &&
+             data.action is string && data.action.size() >= 1 && data.action.size() <= 120 &&
+             data.targetId is string && data.targetId.size() <= 128 &&
+             data.details is string && data.details.size() <= 1000 &&
+             data.severity in ['info', 'warning', 'error'] &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    match /admins/{uid} {
+      allow get: if isSignedIn() && isValidId(uid) && (request.auth.uid == uid || isOwnerEmail());
+      allow list: if isOwnerEmail();
+      allow create: if isOwnerEmail() &&
+                       isValidId(uid) &&
+                       incoming().uid == uid &&
+                       incoming().keys().hasAll(['uid', 'email', 'grantedBy', 'createdAt']) &&
+                       incoming().keys().hasOnly(['uid', 'email', 'grantedBy', 'createdAt']) &&
+                       isValidAdminGrant(incoming());
+      allow update: if false;
+      allow delete: if isOwnerEmail() && isValidId(uid) && uid != request.auth.uid;
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       incoming().userId == userId &&
+                       incoming().keys().hasAll(['userId', 'email', 'displayName', 'role', 'status', 'planId', 'videoUsed', 'voiceUsed', 'imageUsed', 'scriptUsed', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'email', 'displayName', 'photoUrl', 'bio', 'preferredLanguage', 'role', 'status', 'planId', 'videoUsed', 'voiceUsed', 'imageUsed', 'scriptUsed', 'chatUsed', 'customVideoLimit', 'customVoiceLimit', 'customImageLimit', 'customScriptLimit', 'customChatLimit', 'recommendedPlanId', 'recommendedNote', 'inviteCode', 'createdAt', 'updatedAt']) &&
+                       isValidUserProfile(incoming()) && (
+                         (isOwnerEmail() && request.auth.uid == userId && incoming().role == 'owner' && incoming().status == 'active') ||
+                         (isAdmin() && incoming().role == 'user') ||
+                         (
+                           request.auth.uid == userId &&
+                           incoming().role == 'user' &&
+                           incoming().status == 'active' &&
+                           ('inviteCode' in incoming()) &&
+                           isValidId(incoming().inviteCode) &&
+                           get(/databases/$(database)/documents/invitations/$(incoming().inviteCode)).data.status == 'pending' &&
+                           (!('invitedEmail' in get(/databases/$(database)/documents/invitations/$(incoming().inviteCode)).data) ||
+                            get(/databases/$(database)/documents/invitations/$(incoming().inviteCode)).data.invitedEmail == '' ||
+                            (request.auth.token.email_verified == true &&
+                             get(/databases/$(database)/documents/invitations/$(incoming().inviteCode)).data.invitedEmail.lower() == request.auth.token.email.lower())) &&
+                           getAfter(/databases/$(database)/documents/invitations/$(incoming().inviteCode)).data.status == 'accepted' &&
+                           getAfter(/databases/$(database)/documents/invitations/$(incoming().inviteCode)).data.acceptedByUid == request.auth.uid &&
+                           incoming().planId == get(/databases/$(database)/documents/invitations/$(incoming().inviteCode)).data.planId
+                         )
+                       );
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt && (
+                         (isOwnerEmail() &&
+                          (userId != request.auth.uid || incoming().role == 'owner') &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoUrl', 'bio', 'preferredLanguage', 'role', 'status', 'planId', 'customVideoLimit', 'customVoiceLimit', 'customImageLimit', 'customScriptLimit', 'customChatLimit', 'recommendedPlanId', 'recommendedNote', 'videoUsed', 'voiceUsed', 'imageUsed', 'scriptUsed', 'chatUsed', 'updatedAt'])) ||
+                         (isAdmin() &&
+                          existing().role != 'owner' &&
+                          incoming().role == 'user' &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'planId', 'customVideoLimit', 'customVoiceLimit', 'customImageLimit', 'customScriptLimit', 'customChatLimit', 'recommendedPlanId', 'recommendedNote', 'videoUsed', 'voiceUsed', 'imageUsed', 'scriptUsed', 'chatUsed', 'updatedAt'])) ||
+                         (request.auth.uid == userId &&
+                          existing().status == 'active' &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoUrl', 'bio', 'preferredLanguage', 'updatedAt'])) ||
+                         (request.auth.uid == userId &&
+                          existing().status == 'active' &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['videoUsed', 'voiceUsed', 'imageUsed', 'scriptUsed', 'chatUsed', 'updatedAt']) &&
+                          incoming().videoUsed >= existing().videoUsed && incoming().videoUsed <= existing().videoUsed + 1 &&
+                          incoming().voiceUsed >= existing().voiceUsed && incoming().voiceUsed <= existing().voiceUsed + 1 &&
+                          incoming().imageUsed >= existing().imageUsed && incoming().imageUsed <= existing().imageUsed + 1 &&
+                          incoming().scriptUsed >= existing().scriptUsed && incoming().scriptUsed <= existing().scriptUsed + 1 &&
+                          (!('chatUsed' in incoming()) ||
+                           (!('chatUsed' in existing()) && incoming().chatUsed <= 1) ||
+                           ('chatUsed' in existing() && incoming().chatUsed >= existing().chatUsed && incoming().chatUsed <= existing().chatUsed + 1)))
+                       );
+
+      allow delete: if isOwnerEmail() && isValidId(userId) && userId != request.auth.uid;
+    }
+
+    match /invitations/{inviteCode} {
+      allow get: if isValidId(inviteCode) && (
+        isAdmin() ||
+        (isSignedIn() &&
+         existing().status == 'pending' &&
+         (!('invitedEmail' in existing()) ||
+          existing().invitedEmail == '' ||
+          (request.auth.token.email_verified == true && existing().invitedEmail.lower() == request.auth.token.email.lower())))
+      );
+      allow list: if isAdmin();
+
+      allow create: if isAdmin() &&
+                       isValidId(inviteCode) &&
+                       incoming().inviteCode == inviteCode &&
+                       incoming().createdByUid == request.auth.uid &&
+                       incoming().status == 'pending' &&
+                       incoming().keys().hasAll(['inviteCode', 'role', 'planId', 'status', 'createdByUid', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['inviteCode', 'invitedEmail', 'invitedName', 'role', 'planId', 'status', 'createdByUid', 'acceptedByUid', 'note', 'createdAt', 'updatedAt']) &&
+                       isValidInvitation(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(inviteCode) &&
+                       isValidInvitation(incoming()) &&
+                       incoming().inviteCode == existing().inviteCode &&
+                       incoming().createdByUid == existing().createdByUid &&
+                       incoming().createdAt == existing().createdAt && (
+                         isAdmin() ||
+                         (existing().status == 'pending' &&
+                          incoming().status == 'accepted' &&
+                          incoming().acceptedByUid == request.auth.uid &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'acceptedByUid', 'updatedAt']) &&
+                          (!('invitedEmail' in existing()) ||
+                           existing().invitedEmail == '' ||
+                           (request.auth.token.email_verified == true && existing().invitedEmail.lower() == request.auth.token.email.lower())) &&
+                          existsAfter(/databases/$(database)/documents/users/$(request.auth.uid)))
+                       );
+
+      allow delete: if isAdmin() && isValidId(inviteCode);
+    }
+
+    match /subscription_plans/{planId} {
+      allow get: if isSignedIn() && isValidId(planId);
+      allow list: if isSignedIn();
+      allow create: if isAdmin() &&
+                       planId in ['free', 'basic', 'pro', 'custom'] &&
+                       incoming().keys().hasAll(['name', 'description', 'priceUsd', 'billingPeriod', 'videoLimit', 'voiceLimit', 'imageLimit', 'scriptLimit', 'includedTools', 'isActive', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['name', 'description', 'priceUsd', 'billingPeriod', 'videoLimit', 'voiceLimit', 'imageLimit', 'scriptLimit', 'chatLimit', 'includedTools', 'isActive', 'createdAt', 'updatedAt']) &&
+                       isValidSubscriptionPlan(incoming());
+      allow update: if isAdmin() &&
+                       isValidId(planId) &&
+                       isValidSubscriptionPlan(incoming()) &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'priceUsd', 'billingPeriod', 'videoLimit', 'voiceLimit', 'imageLimit', 'scriptLimit', 'chatLimit', 'includedTools', 'isActive', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /upgrade_requests/{requestId} {
+      allow get: if isSignedIn() && isValidId(requestId) && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+
+      allow create: if isActiveUser() &&
+                       isValidId(requestId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().status == 'pending' &&
+                       incoming().keys().hasAll(['userId', 'userEmail', 'userName', 'currentPlanId', 'requestedPlanId', 'status', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'userEmail', 'userName', 'currentPlanId', 'requestedPlanId', 'note', 'status', 'adminNote', 'reviewedByUid', 'createdAt', 'updatedAt']) &&
+                       isValidUpgradeRequest(incoming());
+
+      allow update: if isAdmin() &&
+                       isValidId(requestId) &&
+                       isValidUpgradeRequest(incoming()) &&
+                       existing().status == 'pending' &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['status', 'adminNote', 'reviewedByUid', 'updatedAt']);
+
+      allow delete: if isValidId(requestId) && (
+        isAdmin() ||
+        (isSignedIn() && existing().userId == request.auth.uid && existing().status == 'pending')
+      );
+    }
+
+    match /projects/{projectId} {
+      allow get: if isSignedIn() && isValidId(projectId) && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+
+      allow create: if isActiveUser() &&
+                       isValidId(projectId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['userId', 'title', 'type', 'prompt', 'outputText', 'status', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'title', 'type', 'prompt', 'outputText', 'language', 'modelUsed', 'status', 'localMediaUri', 'createdAt', 'updatedAt']) &&
+                       isValidProject(incoming());
+
+      allow update: if isValidId(projectId) &&
+                       isValidProject(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       (isAdmin() || (isActiveUser() && existing().userId == request.auth.uid)) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['title', 'prompt', 'outputText', 'language', 'modelUsed', 'status', 'localMediaUri', 'updatedAt']);
+
+      allow delete: if isValidId(projectId) && (isAdmin() || (isSignedIn() && existing().userId == request.auth.uid));
+    }
+
+    match /chat_sessions/{sessionId} {
+      allow get: if isSignedIn() && isValidId(sessionId) && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+
+      allow create: if isActiveUser() &&
+                       isValidId(sessionId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['userId', 'title', 'language', 'modelUsed', 'lastMessagePreview', 'messageCount', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'title', 'language', 'modelUsed', 'lastMessagePreview', 'messageCount', 'createdAt', 'updatedAt']) &&
+                       isValidChatSession(incoming());
+
+      allow update: if isActiveUser() &&
+                       isValidId(sessionId) &&
+                       existing().userId == request.auth.uid &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidChatSession(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['title', 'language', 'modelUsed', 'lastMessagePreview', 'messageCount', 'updatedAt']);
+
+      allow delete: if isSignedIn() && isValidId(sessionId) && (existing().userId == request.auth.uid || isAdmin());
+
+      match /messages/{messageId} {
+        allow get: if isSignedIn() && isValidId(sessionId) && isValidId(messageId) && (existing().userId == request.auth.uid || isAdmin());
+        allow list: if isAdmin() || (isSignedIn() && isValidId(sessionId) && existing().userId == request.auth.uid);
+
+        allow create: if isActiveUser() &&
+                         isValidId(sessionId) &&
+                         isValidId(messageId) &&
+                         incoming().userId == request.auth.uid &&
+                         get(/databases/$(database)/documents/chat_sessions/$(sessionId)).data.userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'role', 'text', 'hasImageAttachment', 'createdAt']) &&
+                         incoming().keys().hasOnly(['userId', 'role', 'text', 'hasImageAttachment', 'modelUsed', 'createdAt']) &&
+                         isValidChatMessage(incoming());
+
+        allow update: if false;
+        allow delete: if isSignedIn() && isValidId(sessionId) && isValidId(messageId) && (existing().userId == request.auth.uid || isAdmin());
+      }
+    }
+
+    match /assistant_notes/{noteId} {
+      allow get: if isSignedIn() && isValidId(noteId) && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+
+      allow create: if isActiveUser() &&
+                       isValidId(noteId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['userId', 'title', 'content', 'kind', 'isCompleted', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'title', 'content', 'kind', 'dueLabel', 'isCompleted', 'createdAt', 'updatedAt']) &&
+                       isValidAssistantNote(incoming());
+
+      allow update: if isActiveUser() &&
+                       isValidId(noteId) &&
+                       existing().userId == request.auth.uid &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidAssistantNote(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'kind', 'dueLabel', 'isCompleted', 'updatedAt']);
+
+      allow delete: if isSignedIn() && isValidId(noteId) && (existing().userId == request.auth.uid || isAdmin());
+    }
+
+    match /notifications/{notificationId} {
+      allow get: if isSignedIn() && isValidId(notificationId) && (existing().targetUserId == request.auth.uid || existing().targetUserId == 'all' || isAdmin());
+      allow list: if isAdmin() || (isSignedIn() && (existing().targetUserId == request.auth.uid || existing().targetUserId == 'all'));
+
+      allow create: if isValidId(notificationId) &&
+                       isValidNotification(incoming()) &&
+                       incoming().createdByUid == request.auth.uid &&
+                       incoming().keys().hasAll(['targetUserId', 'title', 'message', 'category', 'isRead', 'createdByUid', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['targetUserId', 'title', 'message', 'category', 'recommendedPlanId', 'isRead', 'createdByUid', 'createdAt', 'updatedAt']) && (
+                         isAdmin() ||
+                         (isActiveUser() && incoming().category == 'support' && incoming().targetUserId == 'admin_inbox' && incoming().isRead == false)
+                       );
+
+      allow update: if isSignedIn() &&
+                       isValidId(notificationId) &&
+                       isValidNotification(incoming()) &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().createdByUid == existing().createdByUid &&
+                       incoming().targetUserId == existing().targetUserId && (
+                         isAdmin() ||
+                         (existing().targetUserId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['isRead', 'updatedAt']))
+                       );
+
+      allow delete: if isAdmin() && isValidId(notificationId);
+    }
+
+    match /system_config/{configId} {
+      allow get: if isSignedIn() && configId == 'global';
+      allow list: if false;
+      allow create: if isAdmin() &&
+                       configId == 'global' &&
+                       incoming().updatedByUid == request.auth.uid &&
+                       incoming().keys().hasAll(['maintenanceMode', 'maintenanceMessage', 'invitesEnabled', 'videoStudioEnabled', 'voiceStudioEnabled', 'imageStudioEnabled', 'scriptStudioEnabled', 'videoProviderConfigured', 'updatedByUid', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['maintenanceMode', 'maintenanceMessage', 'invitesEnabled', 'videoStudioEnabled', 'voiceStudioEnabled', 'imageStudioEnabled', 'scriptStudioEnabled', 'aiChatEnabled', 'voiceAssistantEnabled', 'phoneActionsEnabled', 'activeChatModel', 'maxVideoDurationSeconds', 'videoProviderConfigured', 'videoProviderName', 'updatedByUid', 'createdAt', 'updatedAt']) &&
+                       isValidSystemConfig(incoming());
+      allow update: if isAdmin() &&
+                       configId == 'global' &&
+                       incoming().updatedByUid == request.auth.uid &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidSystemConfig(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['maintenanceMode', 'maintenanceMessage', 'invitesEnabled', 'videoStudioEnabled', 'voiceStudioEnabled', 'imageStudioEnabled', 'scriptStudioEnabled', 'aiChatEnabled', 'voiceAssistantEnabled', 'phoneActionsEnabled', 'activeChatModel', 'maxVideoDurationSeconds', 'videoProviderConfigured', 'videoProviderName', 'updatedByUid', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /admin_logs/{logId} {
+      allow get: if isAdmin() && isValidId(logId);
+      allow list: if isAdmin();
+      allow create: if isValidId(logId) &&
+                       incoming().actorUid == request.auth.uid &&
+                       incoming().keys().hasAll(['actorUid', 'actorEmail', 'action', 'targetId', 'details', 'severity', 'createdAt']) &&
+                       incoming().keys().hasOnly(['actorUid', 'actorEmail', 'action', 'targetId', 'details', 'severity', 'createdAt']) &&
+                       isValidAdminLog(incoming()) &&
+                       (isAdmin() || (isActiveUser() && incoming().severity == 'error'));
+      allow update, delete: if false;
+    }
+  }
+}
