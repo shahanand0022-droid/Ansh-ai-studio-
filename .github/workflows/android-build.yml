@@ -68,12 +68,14 @@ jobs:
             keytool -list -v -keystore debug.keystore -alias androiddebugkey -storepass android -keypass android | grep -E "SHA1:|SHA256:" || true
           fi
 
+          if [ ! -f .env.example ]; then
+            touch .env.example
+          fi
           if [ ! -f .env ]; then
-            if [ -f .env.example ]; then
-              cp .env.example .env
-            else
-              touch .env
-            fi
+            cp .env.example .env
+          fi
+          if [ ! -f app/google-services.json ]; then
+            echo "WARNING: app/google-services.json not found in repo!"
           fi
 
       - name: Set up Gradle 9.3.1
@@ -82,7 +84,13 @@ jobs:
           gradle-version: '9.3.1'
 
       - name: Build Debug APK
-        run: gradle :app:assembleDebug --stacktrace
+        run: |
+          set -o pipefail
+          if ! gradle :app:assembleDebug --no-configuration-cache --console=plain --stacktrace 2>&1 | tee /tmp/gradle-build.log; then
+            echo "=== FAILURE SUMMARY ==="
+            grep -n -C 5 -E "FAILURE:|What went wrong:|Execution failed|Unresolved reference|error:" /tmp/gradle-build.log | tail -n 45 || tail -n 45 /tmp/gradle-build.log
+            exit 1
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
